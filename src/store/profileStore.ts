@@ -10,7 +10,7 @@ const starterProfile: PlayerProfile = {
   reputation: 0,
   credits: 0,
   unlockedTools: ["scanner", "spoof-token"],
-  unlockedMinigames: ["door"],
+  unlockedMinigames: ["door", "firewall"],
   completedContracts: [],
   failedContracts: [],
 };

@@ -13,11 +13,13 @@ import {
   Zap,
 } from "lucide-react";
 import { PhaserGameStage } from "./components/PhaserGameStage";
+import { TerminalHackStage } from "./components/TerminalHackStage";
 import { contracts } from "./data/contracts";
 import { tools } from "./data/tools";
 import { createDoorRelayConfig, type DoorRelayOptions } from "./game/doorRelay/doorRelayLogic";
 import { gameEvents, type HackStatus } from "./game/gameEvents";
 import { createSafeDialConfig, type SafeDialOptions } from "./game/safeDial/safeDialLogic";
+import { createTerminalHackConfig, type TerminalHackOptions } from "./game/terminal/terminalHackLogic";
 import { useProfileStore } from "./store/profileStore";
 
 export function App() {
@@ -86,7 +88,27 @@ export function App() {
     ],
   );
   const safeConfig = useMemo(() => createSafeDialConfig(safeOptions), [safeOptions]);
-  const activeConfig = activeContract.targetType === "safe" ? safeConfig : relayConfig;
+  const terminalOptions: TerminalHackOptions = useMemo(
+    () => ({
+      contractId: activeContract.id,
+      hackingStat: profile.hackingStat,
+      securityLevel: activeContract.securityLevel,
+      traceRisk: activeContract.traceRisk,
+      toolId: selectedTool?.id ?? "none",
+      toolTraceModifier: selectedTool?.traceModifier ?? 0,
+    }),
+    [
+      activeContract.id,
+      activeContract.securityLevel,
+      activeContract.traceRisk,
+      profile.hackingStat,
+      selectedTool?.id,
+      selectedTool?.traceModifier,
+    ],
+  );
+  const terminalConfig = useMemo(() => createTerminalHackConfig(terminalOptions), [terminalOptions]);
+  const activeConfig =
+    activeContract.targetType === "safe" ? safeConfig : activeContract.targetType === "firewall" ? terminalConfig : relayConfig;
   const isUnderleveled = profile.hackingStat < activeContract.requiredHackingStat;
   const initialHackStatus = useMemo<HackStatus>(
     () => ({
@@ -103,6 +125,10 @@ export function App() {
           ? safeConfig.stabilizerActive
             ? "Signal Stabilizer ready. Watchdog trace is dampened."
             : "Safe dial ready. Catch three tumbler windows."
+          : activeContract.targetType === "firewall"
+            ? terminalConfig.scannerActive
+              ? "Scanner ready. Terminal duds will be removed."
+              : "Terminal ready. Pick a password candidate and read likeness feedback."
           : relayConfig.scannerActive
             ? "Scanner ready. It will mark the next stable relay."
             : relayConfig.shieldCharges > 0
@@ -117,15 +143,18 @@ export function App() {
       relayConfig.scannerActive,
       relayConfig.shieldCharges,
       safeConfig.stabilizerActive,
+      terminalConfig.scannerActive,
     ],
   );
   const [hackStatus, setHackStatus] = useState<HackStatus>(initialHackStatus);
 
   const intel = activeContract.intelByStat[profile.hackingStat];
   const activeResult = lastResult?.contractId === activeContract.id ? lastResult : undefined;
-  const progressLabel = activeContract.targetType === "safe" ? "Tumblers" : "Bridge";
+  const progressLabel =
+    activeContract.targetType === "safe" ? "Tumblers" : activeContract.targetType === "firewall" ? "Guesses" : "Bridge";
   const assistLabel = activeContract.targetType === "safe" ? "Assist" : "Shield";
-  const contractKindLabel = activeContract.targetType === "safe" ? "Safe hack" : "Door hack";
+  const contractKindLabel =
+    activeContract.targetType === "safe" ? "Safe hack" : activeContract.targetType === "firewall" ? "Firewall hack" : "Door hack";
 
   useEffect(() => {
     const offStatus = gameEvents.on("door-hack:status", setHackStatus);
@@ -138,12 +167,19 @@ export function App() {
       applyHackResult(result);
       setHackStarted(false);
     });
+    const offTerminalStatus = gameEvents.on("terminal-hack:status", setHackStatus);
+    const offTerminalComplete = gameEvents.on("terminal-hack:complete", (result) => {
+      applyHackResult(result);
+      setHackStarted(false);
+    });
 
     return () => {
       offStatus();
       offComplete();
       offSafeStatus();
       offSafeComplete();
+      offTerminalStatus();
+      offTerminalComplete();
     };
   }, [applyHackResult]);
 
@@ -248,6 +284,8 @@ export function App() {
                       ? `Overreach / Rec stat ${contract.requiredHackingStat}`
                       : contract.targetType === "safe"
                         ? "Safe hack"
+                        : contract.targetType === "firewall"
+                          ? "Firewall hack"
                         : "Door hack"}
                   </span>
                   <strong>{contract.title}</strong>
@@ -294,12 +332,16 @@ export function App() {
 
         <section className="playfield-panel">
           {hackStarted ? (
-            <PhaserGameStage
-              key={runKey}
-              contractType={activeContract.targetType}
-              doorOptions={relayOptions}
-              safeOptions={safeOptions}
-            />
+            activeContract.targetType === "firewall" ? (
+              <TerminalHackStage key={runKey} options={terminalOptions} />
+            ) : (
+              <PhaserGameStage
+                key={runKey}
+                contractType={activeContract.targetType}
+                doorOptions={relayOptions}
+                safeOptions={safeOptions}
+              />
+            )
           ) : activeResult ? (
             <div className={activeResult.success ? "result-playfield success" : "result-playfield failure"}>
               <div className="result-mark">{activeResult.success ? <BadgeCheck size={54} /> : <ShieldAlert size={54} />}</div>
@@ -308,18 +350,26 @@ export function App() {
                 {activeResult.success
                   ? activeContract.targetType === "safe"
                     ? "Safe open"
+                    : activeContract.targetType === "firewall"
+                      ? "Firewall opened"
                     : "Access granted"
                   : activeContract.targetType === "safe"
                     ? "Safe locked"
+                    : activeContract.targetType === "firewall"
+                      ? "Terminal locked"
                     : "Access denied"}
               </h3>
               <p>
                 {activeResult.success
                   ? activeContract.targetType === "safe"
                     ? "The tumblers aligned and the safe contents were logged."
+                    : activeContract.targetType === "firewall"
+                      ? "The terminal accepted the password and exposed the archive index."
                     : "The relay accepted the bridge and the operation was recorded."
                   : activeContract.targetType === "safe"
                     ? "The safe interface locked down. No reward was issued."
+                    : activeContract.targetType === "firewall"
+                      ? "The terminal locked out. No reward was issued."
                     : "The relay rejected the bridge. No reward was issued."}
               </p>
               <div className="result-grid">
@@ -351,7 +401,9 @@ export function App() {
                   <span>{activeContract.targetType === "safe" ? "Performance" : "Shielded"}</span>
                   <strong>
                     {activeContract.targetType === "safe"
-                      ? activeResult.performanceLabel ?? "No lock"
+                    ? activeResult.performanceLabel ?? "No lock"
+                    : activeContract.targetType === "firewall"
+                      ? activeResult.performanceLabel ?? "No session"
                       : `${activeResult.shieldAbsorbed} pulse`}
                   </strong>
                 </div>
@@ -369,6 +421,8 @@ export function App() {
                   ? "Overreach target armed"
                   : activeContract.targetType === "safe"
                     ? "Safe dial awaiting contact"
+                    : activeContract.targetType === "firewall"
+                      ? "Terminal awaiting login"
                     : "Door relay awaiting handshake"}
               </h3>
               <p>
@@ -376,7 +430,9 @@ export function App() {
                   ? `You can attempt it now, but this target expects stat ${activeContract.requiredHackingStat}. Trace, timing, and mistakes will be much harsher.`
                   : activeContract.targetType === "safe"
                     ? "Start the hack to catch three tumbler windows before trace seals the safe."
-                    : "Start the hack to bridge five relay nodes before trace reaches lock."}
+                    : activeContract.targetType === "firewall"
+                      ? "Start the hack to pick a password candidate and use likeness feedback to narrow the word list."
+                    : "Start the hack to place modules and route a live cable before trace reaches lock."}
               </p>
             </div>
           )}

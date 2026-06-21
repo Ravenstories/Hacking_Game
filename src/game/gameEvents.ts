@@ -6,18 +6,23 @@ export type HackStatus = {
   progress: number;
   mistakes: number;
   shieldCharges: number;
+  phase?: "setup" | "routing" | "complete";
+  modulesPlaced?: number;
   scannerHintIndex?: number;
   message: string;
 };
 
 export type DoorHackStatus = HackStatus;
 export type SafeHackStatus = HackStatus;
+export type TerminalHackStatus = HackStatus;
 
 type GameEventMap = {
   "door-hack:status": DoorHackStatus;
   "door-hack:complete": HackResult;
   "safe-hack:status": SafeHackStatus;
   "safe-hack:complete": HackResult;
+  "terminal-hack:status": TerminalHackStatus;
+  "terminal-hack:complete": HackResult;
 };
 
 class TypedGameEvents extends EventTarget {
