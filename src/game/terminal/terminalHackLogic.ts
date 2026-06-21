@@ -1,4 +1,4 @@
-import type { HackingStat } from "../../types";
+import type { HackingStat, ModuleInventory } from "../../types";
 
 export type TerminalHackOptions = {
   contractId: string;
@@ -19,6 +19,7 @@ export type TerminalCandidate = {
 export type TerminalHackConfig = {
   contractId: string;
   toolId: string;
+  securityLevel: HackingStat;
   scannerActive: boolean;
   timeLimit: number;
   startingTrace: number;
@@ -155,6 +156,7 @@ export function createTerminalHackConfig(options: TerminalHackOptions): Terminal
   return {
     contractId: options.contractId,
     toolId: options.toolId,
+    securityLevel: options.securityLevel,
     scannerActive,
     timeLimit: clamp(70 + statDelta * 5 - underleveled * 8, 38, 90),
     startingTrace,
@@ -272,6 +274,21 @@ export function getTerminalProgress(state: TerminalHackState, config: TerminalHa
 
 export function getLikeness(word: string, secretWord: string) {
   return word.split("").reduce((score, letter, index) => score + (secretWord[index] === letter ? 1 : 0), 0);
+}
+
+export function getTerminalModuleRewards(config: TerminalHackConfig): Partial<ModuleInventory> {
+  const rewardTable: Array<keyof ModuleInventory> = ["stabilizer", "bypass", "filter", "inverter", "amplifier"];
+  const firstReward = rewardTable[getSeed(config.secretWord) % rewardTable.length];
+  const rewards: Partial<ModuleInventory> = {
+    [firstReward]: 1,
+  };
+
+  if (config.securityLevel >= 3) {
+    const secondReward = rewardTable[(getSeed(config.contractId) + config.wordLength) % rewardTable.length];
+    rewards[secondReward] = (rewards[secondReward] ?? 0) + 1;
+  }
+
+  return rewards;
 }
 
 function chooseDuds(words: string[], secretWord: string, count: number) {

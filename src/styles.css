@@ -138,6 +138,11 @@ h3 {
   text-transform: uppercase;
 }
 
+.panel-title.compact {
+  margin-bottom: 8px;
+  font-size: 0.68rem;
+}
+
 .panel-note {
   margin: -4px 0 12px;
   color: var(--muted);
@@ -224,6 +229,62 @@ h3 {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+}
+
+.test-editor,
+.module-inventory {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.test-editor label,
+.module-resource-grid label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.test-editor input,
+.test-editor select,
+.module-resource-grid input {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(5, 12, 17, 0.72);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.test-editor input,
+.module-resource-grid input {
+  padding: 0 8px;
+}
+
+.test-editor select {
+  padding: 0 6px;
+}
+
+.test-editor input:disabled,
+.test-editor select:disabled,
+.module-resource-grid input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.test-grid {
+  display: grid;
+  grid-template-columns: 0.75fr 1fr 1fr;
+  gap: 7px;
 }
 
 .contract-list {
@@ -653,6 +714,24 @@ h3 {
   gap: 9px;
 }
 
+.module-inventory {
+  margin-top: 4px;
+}
+
+.module-resource-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.module-resource-grid label {
+  text-align: center;
+}
+
+.module-resource-grid input {
+  text-align: center;
+}
+
 .tool-card {
   display: grid;
   gap: 6px;
@@ -753,6 +832,10 @@ h3 {
 
   .result-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .module-resource-grid {
+    grid-template-columns: repeat(5, minmax(44px, 1fr));
   }
 
   .terminal-stage {

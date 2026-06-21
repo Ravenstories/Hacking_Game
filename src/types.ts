@@ -1,6 +1,8 @@
 export type HackingStat = 1 | 2 | 3 | 4 | 5;
 
 export type MinigameType = "door" | "safe" | "firewall" | "surveillance" | "duel";
+export type ModuleResourceId = "stabilizer" | "bypass" | "inverter" | "amplifier" | "filter";
+export type ModuleInventory = Record<ModuleResourceId, number>;
 
 export type PlayerProfile = {
   id: string;
@@ -8,6 +10,7 @@ export type PlayerProfile = {
   hackingStat: HackingStat;
   reputation: number;
   credits: number;
+  moduleInventory: ModuleInventory;
   unlockedTools: string[];
   unlockedMinigames: MinigameType[];
   completedContracts: string[];
@@ -49,4 +52,6 @@ export type HackResult = {
   stagesCompleted?: number;
   precision?: number;
   performanceLabel?: string;
+  consumedModules?: ModuleResourceId[];
+  moduleRewards?: Partial<ModuleInventory>;
 };

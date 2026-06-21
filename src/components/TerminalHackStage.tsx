@@ -5,6 +5,7 @@ import {
   createTerminalHackConfig,
   createTerminalHackState,
   getLikeness,
+  getTerminalModuleRewards,
   getTerminalProgress,
   guessTerminalWord,
 } from "../game/terminal/terminalHackLogic";
@@ -58,6 +59,7 @@ export function TerminalHackStage({ options }: TerminalHackStageProps) {
           toolId: config.toolId,
           stagesCompleted: state.guesses.length,
           performanceLabel: state.completed ? "Password accepted" : "Terminal lockout",
+          moduleRewards: state.completed ? getTerminalModuleRewards(config) : undefined,
         });
       }, 700);
 

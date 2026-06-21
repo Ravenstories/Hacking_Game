@@ -1,4 +1,4 @@
-import type { HackingStat } from "../../types";
+import type { HackingStat, ModuleInventory } from "../../types";
 
 export type RoutingPhase = "setup" | "routing" | "complete";
 
@@ -22,6 +22,7 @@ export type RoutingBoardOptions = {
   traceRisk: number;
   toolId: string;
   toolTraceModifier: number;
+  moduleInventory?: ModuleInventory;
 };
 
 export type RoutingNode = {
@@ -244,7 +245,10 @@ export function createRoutingBoardConfig(options: RoutingBoardOptions): RoutingB
     correctTraceDrop: Math.max(2, 5 + options.hackingStat - underleveled * 2),
     shieldCharges: options.toolId === "spoof-token" ? 1 : 0,
     moduleSlots,
-    modules: moduleLibrary.map((module) => ({ ...module })),
+    modules: moduleLibrary.map((module) => ({
+      ...module,
+      remainingUses: options.moduleInventory?.[module.id] ?? module.remainingUses,
+    })),
     nodes,
     edges,
     recommendedPath,

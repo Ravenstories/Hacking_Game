@@ -745,6 +745,7 @@ export class DoorRelayScene extends Phaser.Scene {
         toolId: this.relayConfig.toolId,
         stagesCompleted: this.relayState.currentPath.length,
         performanceLabel: success ? "Clean route" : "Burned route",
+        consumedModules: Object.values(this.relayState.placedModules),
       });
     });
   }

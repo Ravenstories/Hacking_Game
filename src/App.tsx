@@ -21,9 +21,35 @@ import { gameEvents, type HackStatus } from "./game/gameEvents";
 import { createSafeDialConfig, type SafeDialOptions } from "./game/safeDial/safeDialLogic";
 import { createTerminalHackConfig, type TerminalHackOptions } from "./game/terminal/terminalHackLogic";
 import { useProfileStore } from "./store/profileStore";
+import type { HackingStat, ModuleInventory, ModuleResourceId } from "./types";
+
+const moduleResourceLabels: Record<ModuleResourceId, string> = {
+  stabilizer: "STAB",
+  bypass: "BYP",
+  inverter: "INV",
+  amplifier: "AMP",
+  filter: "FLT",
+};
+
+const moduleResourceNames: Record<ModuleResourceId, string> = {
+  stabilizer: "Stabilizer",
+  bypass: "Bypass",
+  inverter: "Inverter",
+  amplifier: "Amplifier",
+  filter: "Filter",
+};
+
+const moduleResourceIds = Object.keys(moduleResourceLabels) as ModuleResourceId[];
 
 export function App() {
-  const { profile, lastResult, applyHackResult, resetProfile } = useProfileStore();
+  const {
+    profile,
+    lastResult,
+    applyHackResult,
+    resetProfile,
+    updateProfileForTesting,
+    updateModuleInventoryForTesting,
+  } = useProfileStore();
   const [activeContractId, setActiveContractId] = useState(contracts[0].id);
   const [selectedToolId, setSelectedToolId] = useState("scanner");
   const [hackStarted, setHackStarted] = useState(false);
@@ -56,12 +82,14 @@ export function App() {
       traceRisk: activeContract.traceRisk,
       toolId: selectedTool?.id ?? "none",
       toolTraceModifier: selectedTool?.traceModifier ?? 0,
+      moduleInventory: profile.moduleInventory,
     }),
     [
       activeContract.id,
       activeContract.securityLevel,
       activeContract.traceRisk,
       profile.hackingStat,
+      profile.moduleInventory,
       selectedTool?.id,
       selectedTool?.traceModifier,
     ],
@@ -150,6 +178,8 @@ export function App() {
 
   const intel = activeContract.intelByStat[profile.hackingStat];
   const activeResult = lastResult?.contractId === activeContract.id ? lastResult : undefined;
+  const rewardText = activeResult?.moduleRewards ? formatModuleInventoryDelta(activeResult.moduleRewards) : "";
+  const consumedText = activeResult?.consumedModules?.length ? formatConsumedModules(activeResult.consumedModules) : "";
   const progressLabel =
     activeContract.targetType === "safe" ? "Tumblers" : activeContract.targetType === "firewall" ? "Guesses" : "Bridge";
   const assistLabel = activeContract.targetType === "safe" ? "Assist" : "Shield";
@@ -252,6 +282,56 @@ export function App() {
             <span>
               <CircleDollarSign size={14} /> {profile.credits}
             </span>
+          </div>
+          <div className="test-editor">
+            <div className="panel-title compact">
+              <Activity size={14} />
+              <span>Test Rig</span>
+            </div>
+            <label>
+              <span>Handle</span>
+              <input
+                value={profile.displayName}
+                onChange={(event) => updateProfileForTesting({ displayName: event.target.value })}
+                disabled={hackStarted}
+              />
+            </label>
+            <div className="test-grid">
+              <label>
+                <span>Stat</span>
+                <select
+                  value={profile.hackingStat}
+                  onChange={(event) => updateProfileForTesting({ hackingStat: Number(event.target.value) as HackingStat })}
+                  disabled={hackStarted}
+                >
+                  {[1, 2, 3, 4, 5].map((stat) => (
+                    <option key={stat} value={stat}>
+                      {stat}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Rep</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={profile.reputation}
+                  onChange={(event) => updateProfileForTesting({ reputation: Number(event.target.value) })}
+                  disabled={hackStarted}
+                />
+              </label>
+              <label>
+                <span>Credits</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={profile.credits}
+                  onChange={(event) => updateProfileForTesting({ credits: Number(event.target.value) })}
+                  disabled={hackStarted}
+                />
+              </label>
+            </div>
           </div>
         </section>
 
@@ -401,11 +481,15 @@ export function App() {
                   <span>{activeContract.targetType === "safe" ? "Performance" : "Shielded"}</span>
                   <strong>
                     {activeContract.targetType === "safe"
-                    ? activeResult.performanceLabel ?? "No lock"
+                      ? activeResult.performanceLabel ?? "No lock"
                     : activeContract.targetType === "firewall"
                       ? activeResult.performanceLabel ?? "No session"
                       : `${activeResult.shieldAbsorbed} pulse`}
                   </strong>
+                </div>
+                <div>
+                  <span>Modules</span>
+                  <strong>{rewardText || consumedText || "No change"}</strong>
                 </div>
               </div>
               <button className="primary-button" type="button" onClick={startHack}>
@@ -459,6 +543,30 @@ export function App() {
               </button>
             ))}
           </div>
+          <div className="module-inventory">
+            <div className="panel-title compact">
+              <DoorOpen size={14} />
+              <span>Door Modules</span>
+            </div>
+            <div className="module-resource-grid">
+              {moduleResourceIds.map((moduleId) => (
+                <label key={moduleId} title={moduleResourceNames[moduleId]}>
+                  <span>{moduleResourceLabels[moduleId]}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="99"
+                    value={profile.moduleInventory[moduleId]}
+                    onChange={(event) =>
+                      updateModuleInventoryForTesting({ [moduleId]: Number(event.target.value) } as Partial<ModuleInventory>)
+                    }
+                    disabled={hackStarted}
+                  />
+                </label>
+              ))}
+            </div>
+            <p className="panel-note">Placed modules are consumed when a door run resolves. Terminal wins recover parts.</p>
+          </div>
         </section>
 
         <section className="panel status-panel">
@@ -501,4 +609,23 @@ export function App() {
       </aside>
     </main>
   );
+}
+
+function formatModuleInventoryDelta(rewards: Partial<ModuleInventory>) {
+  return moduleResourceIds
+    .filter((moduleId) => rewards[moduleId])
+    .map((moduleId) => `+${rewards[moduleId]} ${moduleResourceLabels[moduleId]}`)
+    .join(" / ");
+}
+
+function formatConsumedModules(modules: ModuleResourceId[]) {
+  const counts = modules.reduce<Partial<Record<ModuleResourceId, number>>>((accumulator, moduleId) => {
+    accumulator[moduleId] = (accumulator[moduleId] ?? 0) + 1;
+    return accumulator;
+  }, {});
+
+  return moduleResourceIds
+    .filter((moduleId) => counts[moduleId])
+    .map((moduleId) => `-${counts[moduleId]} ${moduleResourceLabels[moduleId]}`)
+    .join(" / ");
 }
